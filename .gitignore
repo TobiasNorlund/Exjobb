@@ -1,0 +1,8 @@
+# directories
+corpus/
+remote/
+.idea/
+
+# files
+*.pyc
+
