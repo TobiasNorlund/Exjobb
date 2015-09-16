@@ -8,7 +8,8 @@ from scipy.sparse import csr_matrix
 import numpy as np
 import random
 import numpy.random as nprnd
-import sys
+import curses
+import cPickle
 
 def parse(corpus, k, d, epsilon):
 
@@ -34,6 +35,7 @@ def parse(corpus, k, d, epsilon):
 
     print("Parsing corpus...")
 
+    processed_words_count = 2*k
     for word in word_gen:
 
         window[wi] = word
@@ -51,7 +53,13 @@ def parse(corpus, k, d, epsilon):
             context_dict[fword][j,] += index_dict[window[wj]]
 
         wi = (wi+1) % win_size
-        print_progress(corpus)
+        processed_words_count += 1
+
+        if random.random() > 0.95:
+            print_progress(corpus, len(context_dict), processed_words_count)
+
+        if processed_words_count > 10000:
+            break
 
 
     return context_dict
@@ -62,9 +70,14 @@ def gen_index_vector(d, epsilon):
     idx = nprnd.choice(d, epsilon, False) #.randint(d, size=epsilon)
     return csr_matrix((data, (np.zeros(epsilon), idx)), dtype=np.int8, shape=(1,d))
 
-def print_progress(corpus):
-    #sys.stdout.write("\rProgress %i" % corpus.get_progress())
-    sys.stdout.write("\r %.2f%%" % (corpus.get_progress()*100))
+stdscr = curses.initscr()
+
+def print_progress(progress, dict_count, processed_words_count):
+    stdscr.addstr(0,0,"Words in dictionary: %i" % dict_count)
+    stdscr.addstr(1,0,"Processed words: %i" % processed_words_count)
+    stdscr.addstr(2,0,"  Unseen ratio: %.2f" % (float(dict_count) / processed_words_count))
+    stdscr.addstr(3,0,"  Progress: %.2f%%" % (corpus.get_progress()*100))
+    stdscr.refresh()
 
 class DummyCorpus(object):
 
@@ -73,7 +86,12 @@ class DummyCorpus(object):
             yield word
 
 if __name__ == "__main__":
-    corpus = OneBCorpus('1-billion-word-language-modeling-benchmark-r13output/training-monolingual.tokenized.shuffled/news.en-00001-of-00100')
-    contexts = parse(corpus, 2, 2000, 10)
+    corpus = OneBCorpus('corpus/1-billion-word-language-modeling-benchmark-r13output/training-monolingual.tokenized.shuffled/news.en-00001-of-00100')
+    try:
+        dicts = parse(corpus, 2, 2000, 10) # returns (index_dict, context_dict)
+    finally:
+        curses.endwin()
 
-    print("Done")
+    cPickle.dump(dicts, open("dicts.p", "wb"))
+
+    print("\nDone")
